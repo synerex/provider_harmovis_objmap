@@ -1,2 +1,2 @@
-# provider_harmovis_objmap
-3DMap dynamic object visualization using Harmoware-VIS
+# provider_harmovis_layers
+Visualization provider using Harmoware-VIS with extra layers.
