@@ -45,6 +45,40 @@ import {OBJLoader} from '@loaders.gl/obj';
 registerLoaders([OBJLoader]);
 const objmesh = '../objdata/3dmap.obj';
 
+const color = {
+	white: [255,255,255],
+	yellow: [255,255,0],
+	fuchsia: [255,0,255],
+	aqua: [0,255,255],
+	lime: [0,255,0],
+	olive: [128,128,0],
+	green: [0,128,0],
+	purple: [128,0,128],
+	blue: [0,0,255],
+	silver: [192,192,192],
+	gray: [128,128,128],
+	teal: [0,128,128],
+	maroon: [128,0,0],
+	red: [255,0,0],
+};
+
+
+const vehicleColor = (x)=>{
+	if(x.vehicletype && x.vehicletype== "robot"){
+	  return color.yellow;
+	}else{
+	  return color.green;
+	}
+}
+const vehicleScale = (x)=>{
+	  return [1.5,1.5,1.5];
+}
+
+const vehicleRadius = (x)=>{
+	  return 2;
+}
+
+
 
 class App extends Container<any,any> {
 	private lines = 0;
@@ -133,6 +167,7 @@ class App extends Container<any,any> {
 
 //		this._onViewStateChange = this._onViewStateChange.bind(this)
 	}
+
 
 	setSampleMesh(){
 				// math
@@ -767,7 +802,7 @@ class App extends Container<any,any> {
                 data:[{position:[136.906428,35.181453]}],
                 mesh:objmesh,
                 getColor:[255,255,255,255],
-                getOrientation:[0,0,90],
+                getOrientation:[0,180,90],
                 opacity: 0.1,
               })
 
@@ -852,6 +887,10 @@ class App extends Container<any,any> {
 					layerRadiusScale: 0.03,
 					layerOpacity: 0.8,
 					getRouteWidth: () => 0.2,
+					iconDesignations:[
+						{type:'person', layer:'Scatterplot', getColor:vehicleColor, getRadius:vehicleRadius},
+						{type:'vehicle', layer:'SimpleMesh', getColor:vehicleColor, sizeScale:1, getScale:vehicleScale}
+					],
 //					getStrokeWidth: 0.1,
 //					getColor : [0,200,20] as number[],
 					getArchWidth: (x : any) => 0.2, 

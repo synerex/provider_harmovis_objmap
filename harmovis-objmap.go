@@ -43,8 +43,8 @@ var (
 )
 
 const (
-	latBase = 35.181433
-	lonBase = 136.906421
+	latBase = 35.181453  //
+	lonBase = 136.906428 //
 	xscale  = 9.109
 	yscale  = 11.094
 )
@@ -363,8 +363,8 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					mm := &MapMarker{
 						mtype: int32(0),
 						id:    rid,
-						lat:   float32(latBase + 0.001*(pose.Pose.Pos.Y/yscale)),
-						lon:   float32(lonBase + 0.001*(pose.Pose.Pos.X/xscale)),
+						lat:   float32(latBase + 0.0001*(pose.Pose.Pos.Y/yscale)),
+						lon:   float32(lonBase + 0.0001*(pose.Pose.Pos.X/xscale)),
 						angle: float32(pose.Pose.Ori.Z),
 						speed: 1,
 					}
@@ -385,7 +385,7 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					fid, _ := strconv.Atoi(ps.Header.FrameID)
 					agts[i] = &pagent.PAgent{
 						Id:    int32(fid),
-						Point: []float64{lonBase + 0.001*(ps.Pose.Pos.X/xscale), latBase + 0.001*(ps.Pose.Pos.Y/yscale)},
+						Point: []float64{lonBase + 0.0001*(ps.Pose.Pos.X/xscale), latBase + 0.0001*(ps.Pose.Pos.Z/yscale)},
 					}
 				}
 				agents := pagent.PAgents{
