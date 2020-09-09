@@ -774,7 +774,7 @@ class App extends Container<any,any> {
                 mesh:objmesh,
                 getColor:[255,255,255,255],
                 getOrientation:[0,180,90],
-                opacity: 0.1,
+                opacity: 0.3,
               })
 
 

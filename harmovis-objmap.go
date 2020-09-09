@@ -363,7 +363,7 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					mm := &MapMarker{
 						mtype: int32(0),
 						id:    rid,
-						lat:   float32(latBase + 0.0001*(pose.Pose.Pos.Y/yscale)),
+						lat:   float32(latBase + 0.0001*(pose.Pose.Pos.Z/yscale)),
 						lon:   float32(lonBase + 0.0001*(pose.Pose.Pos.X/xscale)),
 						angle: float32(pose.Pose.Ori.Z),
 						speed: 1,
