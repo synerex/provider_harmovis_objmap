@@ -145,6 +145,14 @@ function startRecivedData() {
             payload
         } as SocketMessage<AgentData>)
     })
+    socket.on('event', (str: string) => {
+        const payload: any = JSON.parse(str);
+//        console.log('event:' + str.length)
+        worker.postMessage({
+            type: 'RECEIVED_EVENT',
+            payload
+        } as SocketMessage<any>)
+    })
     socket.on('pitch', (str: string) =>{
 //        console.log('Pitch:' + str)
         let payload:any = JSON.parse(str)

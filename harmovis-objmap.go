@@ -355,7 +355,7 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	if err == nil {
 		var rid int32
 		if strings.HasPrefix(mqttRCD.Topic, "pos/robot") {
-			n, nerr := fmt.Sscanf(mqttRCD.Topic, "pos/robot/%d/pse", &rid)
+			n, nerr := fmt.Sscanf(mqttRCD.Topic, "pos/robot/%d/pose", &rid)
 			if n == 1 && nerr == nil { // robot pose into location
 				var pose Pose
 				jerr := json.Unmarshal(mqttRCD.Record, &pose)

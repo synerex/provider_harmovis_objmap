@@ -45,47 +45,13 @@ import {OBJLoader} from '@loaders.gl/obj';
 registerLoaders([OBJLoader]);
 const objmesh = '../objdata/3dmap.obj';
 
-const color = {
-	white: [255,255,255],
-	yellow: [255,255,0],
-	fuchsia: [255,0,255],
-	aqua: [0,255,255],
-	lime: [0,255,0],
-	olive: [128,128,0],
-	green: [0,128,0],
-	purple: [128,0,128],
-	blue: [0,0,255],
-	silver: [192,192,192],
-	gray: [128,128,128],
-	teal: [0,128,128],
-	maroon: [128,0,0],
-	red: [255,0,0],
-};
-
-
-const vehicleColor = (x)=>{
-	if(x.vehicletype && x.vehicletype== "robot"){
-	  return color.yellow;
-	}else{
-	  return color.green;
-	}
-}
-const vehicleScale = (x)=>{
-	  return [1.5,1.5,1.5];
-}
-
-const vehicleRadius = (x)=>{
-	  return 2;
-}
-
-
 
 class App extends Container<any,any> {
 	private lines = 0;
 
 	constructor (props: any) {
 		super(props)
-		const { setSecPerHour, setLeading, setTrailing } = props.actions
+		const { setSecPerHour, setLeading, setTrailing,setInitialViewChange } = props.actions
 		const worker = new Worker('socketWorker.js'); // worker for socket-io communication.
 		const self = this;
 		worker.onmessage = (e) => {
@@ -125,6 +91,8 @@ class App extends Container<any,any> {
 			} else if (isLabelInfoMsg(msg)){
 				console.log("LabelText")
 				store.dispatch(actions.setTopLabelInfo(msg.payload))
+			} else if (msg.type === 'RECEIVED_EVENT') {
+				self.getEvent(msg.payload)
 			} else if (isHarmoVISConfMsg(msg)){
 				self.resolveHarmoVISConf(msg.payload)
 			}
@@ -134,6 +102,7 @@ class App extends Container<any,any> {
 		setSecPerHour(3600)
 		setLeading(3)
 		setTrailing(3)
+		setInitialViewChange(false)
 
 
 
@@ -167,7 +136,6 @@ class App extends Container<any,any> {
 
 //		this._onViewStateChange = this._onViewStateChange.bind(this)
 	}
-
 
 	setSampleMesh(){
 				// math
@@ -495,6 +463,7 @@ class App extends Container<any,any> {
 			setMovesbase.forEach(
 				(
 					v: {
+						type: any;
 						id: number;
 						mtype: number;
 						departuretime: number;
@@ -524,6 +493,7 @@ class App extends Container<any,any> {
 			});
 			if (!flag) {
 				setMovesbase.push({
+					type: 'agents',
 					mtype: 0,
 					id: agent.id || agn,
 					departuretime: time,
@@ -571,8 +541,8 @@ class App extends Container<any,any> {
 
 	getEvent (socketData:any) {
 		const { actions, movesbase } = this.props
-		const { mtype, id, lat, lon, angle, speed } = JSON.parse(socketData)
-		// 	console.log("dt:",mtype,id,time,lat,lon,angle,speed, socketData);
+		const { mtype, id, lat, lon, angle, speed } = socketData;
+		//  console.log("getEvent socketData:", socketData);
 		const time = Date.now() / 1000 // set time as now. (If data have time, ..)
 		let hit = false
 		const movesbasedata = [...movesbase] // why copy !?
@@ -597,6 +567,7 @@ class App extends Container<any,any> {
 		}
 		if (!hit) {
 			setMovesbase.push({
+				agents: 'event',
 				mtype, id,
 				departuretime: time,
 				arrivaltime: time,
@@ -888,8 +859,8 @@ class App extends Container<any,any> {
 					layerOpacity: 0.8,
 					getRouteWidth: () => 0.2,
 					iconDesignations:[
-						{type:'person', layer:'Scatterplot', getColor:vehicleColor, getRadius:vehicleRadius},
-						{type:'vehicle', layer:'SimpleMesh', getColor:vehicleColor, sizeScale:1, getScale:vehicleScale}
+						{type:'agents', layer:'Scatterplot', getColor:()=>[0,255,0,255]},
+						{type:'event', layer:'Scatterplot', getColor:()=>[255,255,0,255]},
 					],
 //					getStrokeWidth: 0.1,
 //					getColor : [0,200,20] as number[],
