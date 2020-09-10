@@ -14,7 +14,7 @@ export interface HeatmapState {
 
 const initialState: HeatmapState  = {
   selectedType: GridType.Hexagon,
-  enabledHeatmap: true,
+  enabledHeatmap: false,
   gridSize: 10,
   gridHeight: 1,
   particleCount: 3000,

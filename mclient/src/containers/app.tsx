@@ -682,7 +682,9 @@ class App extends Container<any,any> {
 		// make zoom level 20!
 //		let pv = this.props.viewport
 //		pv.maxZoom = 20
-		this.props.actions.setViewport({maxZoom:30, minZoom:1, maxPitch:85})
+
+		this.props.actions.setViewport({longitude: 136.9060260647614, latitude: 35.18149004383559, zoom: 19.04164750783877,maxZoom:30, minZoom:1, maxPitch:85})
+//		this.props.actions.setViewport({maxZoom:30, minZoom:1, maxPitch:85})
 //		const { setNoLoop } = this.props.actions
 //		setNoLoop(true); // no loop on time end.
 //		this.setSampleMesh()
@@ -788,7 +790,7 @@ class App extends Container<any,any> {
                 mesh:objmesh,
                 getColor:[255,255,255,255],
                 getOrientation:[0,180,90],
-                opacity: 0.1,
+                opacity: 0.3,
               })
 
 
