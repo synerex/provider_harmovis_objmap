@@ -13,7 +13,21 @@ import {
 //import { Layer } from '@deck.gl/core'
 
 import {GeoJsonLayer, LineLayer, ArcLayer, ScatterplotLayer} from '@deck.gl/layers'
+import { CubeGeometry } from '@luma.gl/engine'
 
+const CUBE_POSITIONS = new Float32Array([
+	-1,-1,2,1,-1,2,1,1,2,-1,1,2,
+	-1,-1,-2,-1,1,-2,1,1,-2,1,-1,-2,
+	-1,1,-2,-1,1,2,1,1,2,1,1,-2,
+	-1,-1,-2,1,-1,-2,1,-1,2,-1,-1,2,
+	1,-1,-2,1,1,-2,1,1,2,1,-1,2,
+	-1,-1,-2,-1,-1,2,-1,1,2,-1,1,-2
+	]);
+const ATTRIBUTES = {
+	POSITION: {size: 3, value: new Float32Array(CUBE_POSITIONS)},
+};
+const iconmesh = new CubeGeometry({attributes: ATTRIBUTES});
+  
 import BarLayer from './BarLayer'
 import MeshLayer from './MeshLayer'
 import BarGraphInfoCard from '../components/BarGraphInfoCard'
@@ -567,7 +581,7 @@ class App extends Container<any,any> {
 		}
 		if (!hit) {
 			setMovesbase.push({
-				agents: 'event',
+				type: 'event',
 				mtype, id,
 				departuretime: time,
 				arrivaltime: time,
@@ -862,7 +876,7 @@ class App extends Container<any,any> {
 					getRouteWidth: () => 0.2,
 					iconDesignations:[
 						{type:'agents', layer:'Scatterplot', getColor:()=>[0,255,0,255]},
-						{type:'event', layer:'Scatterplot', getColor:()=>[255,255,0,255]},
+						{type:'event', layer:'SimpleMesh', getColor:()=>[255,255,0,255], mesh:iconmesh, sizeScale: 0.2},
 					],
 //					getStrokeWidth: 0.1,
 //					getColor : [0,200,20] as number[],
