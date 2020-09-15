@@ -8,7 +8,7 @@ export interface MapLayerState {
 }
 
 const initialState: MapLayerState  = {
-    mapVisible: true, 
+    mapVisible: false, 
     agentColor: [0,219,58,220],
 }
 
