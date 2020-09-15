@@ -157,6 +157,15 @@ export default class Controller extends React.Component<ControllerProps, ContSta
     }
   }
 
+  movesBaseSave(){
+    const resultJson = JSON.stringify(this.props.movesbase);
+    const downLoadLink = document.createElement("a");
+    downLoadLink.download = 'movesbase-' + Date.now() + '.json';
+    downLoadLink.href = URL.createObjectURL(new Blob([resultJson], {type: "text.plain"}));
+    downLoadLink.dataset.downloadurl = ["text/plain", downLoadLink.download, downLoadLink.href].join(":");
+    downLoadLink.click();
+  }
+
   render () {
     const { settime, timeBegin, leading, timeLength, actions,
       secperhour, animatePause, animateReverse,
@@ -183,6 +192,13 @@ export default class Controller extends React.Component<ControllerProps, ContSta
                 <label htmlFor='MoveOptionChecked' className='form-check-label'>移動データオプション表示</label>
               </div>
             </li>
+            <li><span>移動データセーブ</span>
+              <div className='btn-group d-flex' role='group'>
+                <button className='btn btn-outline-light btn-sm w-100' onClick={this.movesBaseSave.bind(this)}>
+                  <span className='button_span'>Data Save</span>
+                </button>
+              </div>
+            </li>            
             {/*
             <li>
               <div className='form-check'>
