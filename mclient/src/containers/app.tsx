@@ -12,7 +12,7 @@ import {
 // import { StaticMap,  } from 'react-map-gl';
 //import { Layer } from '@deck.gl/core'
 
-import {GeoJsonLayer, LineLayer, ArcLayer, ScatterplotLayer} from '@deck.gl/layers'
+import {GeoJsonLayer, LineLayer, ArcLayer, ScatterplotLayer} from 'deck.gl'
 import { CubeGeometry } from '@luma.gl/engine'
 
 const CUBE_POSITIONS = new Float32Array([
@@ -53,7 +53,7 @@ import HeatmapLayer from './HeatmapLayer'
 //import layerSettings from '../reducer/layerSettings'
 
 // for objMap.
-import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
+import { SimpleMeshLayer } from 'deck.gl';
 import {registerLoaders} from '@loaders.gl/core';
 import {OBJLoader} from '@loaders.gl/obj';
 registerLoaders([OBJLoader]);
