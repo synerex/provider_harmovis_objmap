@@ -416,6 +416,9 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		if strings.HasPrefix(mqttRCD.Topic, "pos/robot") {
 			n, nerr := fmt.Sscanf(mqttRCD.Topic, "pos/robot/%d/pose", &rid)
 			if n == 1 && nerr == nil { // robot pose into location
+				if rid < 10 {
+					rid += 100 // we just check for different name space for agent and robot.
+				}
 				var pose Pose
 				jerr := json.Unmarshal(mqttRCD.Record, &pose)
 				if jerr == nil {
