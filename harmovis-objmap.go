@@ -34,6 +34,7 @@ var (
 	assetDir        = flag.String("assetdir", "", "set Web client dir")
 	mapbox          = flag.String("mapbox", "", "Set Mapbox access token")
 	port            = flag.Int("port", 10080, "HarmoVis Ext Provider Listening Port")
+	notUnity        = flag.Bool("noUnity", false, "do not use unity")
 	mu              = new(sync.Mutex)
 	version         = "0.03"
 	assetsDir       http.FileSystem
@@ -199,6 +200,21 @@ type Pose struct {
 			Nsecs int `json:"nsecs"`
 		} `json:"stamp"`
 		FrameID string `json:"frame_id"`
+	} `json:"header"`
+	Pose struct {
+		Pos Position    `json:"position"`
+		Ori Orientation `json:"orientation"`
+	} `json:"pose"`
+}
+
+type HumanPose struct {
+	Header struct {
+		Seq   int `json:"seq"`
+		Stamp struct {
+			Secs  int `json:"secs"`
+			Nsecs int `json:"nsecs"`
+		} `json:"stamp"`
+		FrameID int `json:"frame_id"`
 	} `json:"header"`
 	Pose struct {
 		Pos Position    `json:"position"`
@@ -422,11 +438,19 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				var pose Pose
 				jerr := json.Unmarshal(mqttRCD.Record, &pose)
 				if jerr == nil {
+					var lat, lon float32
+					if *notUnity {
+						lat = float32(latBase + -0.0001*(pose.Pose.Pos.Y/yscale))
+						lon = float32(lonBase + -0.0001*(pose.Pose.Pos.X/xscale))
+					} else {
+						lat = float32(latBase + 0.0001*(pose.Pose.Pos.Z/yscale))
+						lon = float32(lonBase + 0.0001*(pose.Pose.Pos.X/xscale))
+					}
 					mm := &MapMarker{
 						mtype: int32(0),
 						id:    rid,
-						lat:   float32(latBase + 0.0001*(pose.Pose.Pos.Z/yscale)),
-						lon:   float32(lonBase + 0.0001*(pose.Pose.Pos.X/xscale)),
+						lat:   lat,
+						lon:   lon,
 						angle: float32(pose.Pose.Ori.Z),
 						speed: 1,
 					}
@@ -439,6 +463,9 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				}
 			}
 		} else if strings.HasPrefix(mqttRCD.Topic, "pos/human/all") {
+			if *notUnity {
+				return
+			}
 			var poses []Pose
 			jerr := json.Unmarshal(mqttRCD.Record, &poses)
 			if jerr == nil {
@@ -466,6 +493,31 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				log.Printf("Unmarshal MQTT human record error! %v %v", jerr, mqttRCD)
 			}
 
+		} else if strings.HasPrefix(mqttRCD.Topic, "pos/human/") {
+			var pose HumanPose
+			var id int32
+			fmt.Sscanf(mqttRCD.Topic, "pos/human/%d/pose", &id)
+			jerr := json.Unmarshal(mqttRCD.Record, &pose)
+			if jerr != nil {
+				log.Printf("Unmarshal MQTT human record error! %v %v", jerr, mqttRCD)
+			} else {
+				agts := make([]*pagent.PAgent, 1)
+				agt := &pagent.PAgent{
+					Id:    id,
+					Point: []float64{lonBase + 0.0001*(pose.Pose.Pos.X/xscale), latBase + 0.0001*(pose.Pose.Pos.Y/yscale)},
+				}
+				agts[0] = agt
+				agents := pagent.PAgents{
+					Agents: agts,
+				}
+				seconds := time.Now().Unix()
+				jsonBytes, _ := json.Marshal(agents)
+				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", seconds, 0, string(jsonBytes))
+				log.Printf("Agent%d:%s", id, jstr)
+				mu.Lock()
+				ioserv.BroadcastToAll("agents", jstr)
+				mu.Unlock()
+			}
 		}
 
 	} else {
