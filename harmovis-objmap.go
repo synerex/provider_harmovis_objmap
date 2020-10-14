@@ -437,6 +437,12 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				}
 				var pose Pose
 				jerr := json.Unmarshal(mqttRCD.Record, &pose)
+				var angle float32
+				if *notUnity {
+					angle = float32(pose.Pose.Ori.Y)
+				} else {
+					angle = float32(pose.Pose.Ori.Z)
+				}
 				if jerr == nil {
 					var lat, lon float32
 					if *notUnity {
@@ -451,7 +457,7 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 						id:    rid,
 						lat:   lat,
 						lon:   lon,
-						angle: float32(pose.Pose.Ori.Z),
+						angle: angle,
 						speed: 1,
 					}
 					log.Printf("Map:%s", mm.GetJson())
