@@ -177,6 +177,7 @@ type MapMarker struct {
 	lon   float32 `json:"lon"`
 	angle float32 `json:"angle"`
 	speed int32   `json:"speed"`
+	ts    int64   `json:"ts"`
 }
 
 type Position struct {
@@ -223,8 +224,13 @@ type HumanPose struct {
 }
 
 func (m *MapMarker) GetJson() string {
-	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d}",
-		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed)
+	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d,\"ts\":%d.%03d}",
+		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, m.ts, 0)
+	return s
+}
+func (m *MapMarker) GetJsonTime() string {
+	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d,\"ts\":%s}",
+		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, time.Unix(m.ts, 0).Format(time.RFC3339))
 	return s
 }
 
@@ -239,6 +245,7 @@ func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 			lon:   flt.Coord.Lon,
 			angle: flt.Angle,
 			speed: flt.Speed,
+			ts:    sp.Ts.AsTime().Unix(), // unix seconds
 		}
 		//		jsondata, err := json.Marshal(*mm)
 		//		fmt.Println("rcb",mm.GetJson())
@@ -427,6 +434,7 @@ func subscribeGeoSupply(client *sxutil.SXServiceClient) {
 func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	mqttRCD := mqtt.MQTTRecord{}
 	err := proto.Unmarshal(sp.Cdata.Entity, &mqttRCD)
+	timeStamp := sp.Ts.AsTime().Unix() // unix time
 	if err == nil {
 		var rid int32
 		if strings.HasPrefix(mqttRCD.Topic, "pos/robot") {
@@ -459,8 +467,9 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 						lon:   lon,
 						angle: angle,
 						speed: 1,
+						ts:    timeStamp,
 					}
-					log.Printf("Map:%s", mm.GetJson())
+					log.Printf("Map:%s", mm.GetJsonTime())
 					mu.Lock()
 					ioserv.BroadcastToAll("event", mm.GetJson())
 					mu.Unlock()
@@ -516,10 +525,37 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				agents := pagent.PAgents{
 					Agents: agts,
 				}
-				seconds := time.Now().Unix()
 				jsonBytes, _ := json.Marshal(agents)
-				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", seconds, 0, string(jsonBytes))
+				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, 0, string(jsonBytes))
 				log.Printf("Agent%d:%s", id, jstr)
+				mu.Lock()
+				ioserv.BroadcastToAll("agents", jstr)
+				mu.Unlock()
+			}
+		} else if strings.HasPrefix(mqttRCD.Topic, "pos/cart/") {
+			var pose HumanPose
+			var cid int32
+			fmt.Sscanf(mqttRCD.Topic, "pos/cart/%d/pose", &cid)
+			if cid < 10 {
+				cid += 500 // we just check for different name space for agent and robot and cart.
+			}
+
+			jerr := json.Unmarshal(mqttRCD.Record, &pose)
+			if jerr != nil {
+				log.Printf("Unmarshal MQTT cart record error! %v %v", jerr, mqttRCD)
+			} else {
+				agts := make([]*pagent.PAgent, 1)
+				agt := &pagent.PAgent{
+					Id:    cid,
+					Point: []float64{lonBase + 0.0001*(pose.Pose.Pos.X/xscale), latBase + 0.0001*(pose.Pose.Pos.Y/yscale)},
+				}
+				agts[0] = agt
+				agents := pagent.PAgents{
+					Agents: agts,
+				}
+				jsonBytes, _ := json.Marshal(agents)
+				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, 0, string(jsonBytes))
+				log.Printf("Agent%d:%s", cid, jstr)
 				mu.Lock()
 				ioserv.BroadcastToAll("agents", jstr)
 				mu.Unlock()
@@ -639,6 +675,7 @@ func main() {
 	mqtt_client := sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON4)
 
 	wg.Add(1)
+
 	go subscribeRideSupply(rideClient)
 
 	go subscribePAgentSupply(pa_client)

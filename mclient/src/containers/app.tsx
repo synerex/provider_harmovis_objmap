@@ -469,11 +469,15 @@ class App extends Container<any,any> {
 	getAgents (dt : AgentData) { // receive Agents information from worker thread.
 		const { actions, movesbase, agentColor } = this.props
 		const agents = dt.dt.agents
-		const time = dt.ts // set time as now. (If data have time, ..)
+		const time = dt.ts // set time
 		let  setMovesbase = movesbase
 
 		agents.forEach((agent, agn) => {
 			let flag = false;
+			let ag_color = agentColor;
+			if (agent.id >= 500 ){ // for Cart!
+				ag_color =  [0,50,255,200];
+			}
 			setMovesbase.forEach(
 				(
 					v: {
@@ -499,7 +503,7 @@ class App extends Container<any,any> {
 						elapsedtime: time,
 						position: [agent.point[0], agent.point[1], 0],
 						angle: 0,
-						color: agent.color || agentColor,
+						color: ag_color,
 						speed: 0.5
 					});
 					flag = true;
@@ -517,7 +521,7 @@ class App extends Container<any,any> {
 						position: [agent.point[0], agent.point[1], 0],
 						angle: 0,
 						speed: 0.5,
-						color: agent.color || agentColor,
+						color: ag_color,
 					}]
 				})
 			}
@@ -553,11 +557,13 @@ class App extends Container<any,any> {
 	}
 
 
+	// showing robot location
 	getEvent (socketData:any) {
 		const { actions, movesbase } = this.props
-		const { mtype, id, lat, lon, angle, speed } = socketData;
+		const { mtype, id, lat, lon, angle, speed, ts } = socketData;
 		//  console.log("getEvent socketData:", socketData);
-		const time = Date.now() / 1000 // set time as now. (If data have time, ..)
+//		var time = Date.now() / 1000 // set time as now. (If data have time, ..)
+		let time = ts
 		let hit = false
 		const movesbasedata = [...movesbase] // why copy !?
 		const setMovesbase = []
