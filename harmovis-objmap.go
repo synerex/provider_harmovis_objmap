@@ -34,6 +34,7 @@ var (
 	assetDir        = flag.String("assetdir", "", "set Web client dir")
 	mapbox          = flag.String("mapbox", "", "Set Mapbox access token")
 	port            = flag.Int("port", 10080, "HarmoVis Ext Provider Listening Port")
+	notUnity        = flag.Bool("noUnity", false, "do not use unity")
 	mu              = new(sync.Mutex)
 	version         = "0.03"
 	assetsDir       http.FileSystem
@@ -176,6 +177,7 @@ type MapMarker struct {
 	lon   float32 `json:"lon"`
 	angle float32 `json:"angle"`
 	speed int32   `json:"speed"`
+	ts    int64   `json:"ts"`
 }
 
 type Position struct {
@@ -206,9 +208,29 @@ type Pose struct {
 	} `json:"pose"`
 }
 
+type HumanPose struct {
+	Header struct {
+		Seq   int `json:"seq"`
+		Stamp struct {
+			Secs  int `json:"secs"`
+			Nsecs int `json:"nsecs"`
+		} `json:"stamp"`
+		FrameID int `json:"frame_id"`
+	} `json:"header"`
+	Pose struct {
+		Pos Position    `json:"position"`
+		Ori Orientation `json:"orientation"`
+	} `json:"pose"`
+}
+
 func (m *MapMarker) GetJson() string {
-	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d}",
-		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed)
+	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d,\"ts\":%d.%03d}",
+		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, m.ts, 0)
+	return s
+}
+func (m *MapMarker) GetJsonTime() string {
+	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d,\"ts\":%s}",
+		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, time.Unix(m.ts, 0).Format(time.RFC3339))
 	return s
 }
 
@@ -223,6 +245,7 @@ func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 			lon:   flt.Coord.Lon,
 			angle: flt.Angle,
 			speed: flt.Speed,
+			ts:    sp.Ts.AsTime().Unix(), // unix seconds
 		}
 		//		jsondata, err := json.Marshal(*mm)
 		//		fmt.Println("rcb",mm.GetJson())
@@ -411,23 +434,42 @@ func subscribeGeoSupply(client *sxutil.SXServiceClient) {
 func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	mqttRCD := mqtt.MQTTRecord{}
 	err := proto.Unmarshal(sp.Cdata.Entity, &mqttRCD)
+	timeStamp := sp.Ts.AsTime().Unix() // unix time
 	if err == nil {
 		var rid int32
 		if strings.HasPrefix(mqttRCD.Topic, "pos/robot") {
 			n, nerr := fmt.Sscanf(mqttRCD.Topic, "pos/robot/%d/pose", &rid)
 			if n == 1 && nerr == nil { // robot pose into location
+				if rid < 10 {
+					rid += 100 // we just check for different name space for agent and robot.
+				}
 				var pose Pose
 				jerr := json.Unmarshal(mqttRCD.Record, &pose)
+				var angle float32
+				if *notUnity {
+					angle = float32(pose.Pose.Ori.Y)
+				} else {
+					angle = float32(pose.Pose.Ori.Z)
+				}
 				if jerr == nil {
+					var lat, lon float32
+					if *notUnity {
+						lat = float32(latBase + -0.0001*(pose.Pose.Pos.Y/yscale))
+						lon = float32(lonBase + -0.0001*(pose.Pose.Pos.X/xscale))
+					} else {
+						lat = float32(latBase + 0.0001*(pose.Pose.Pos.Z/yscale))
+						lon = float32(lonBase + 0.0001*(pose.Pose.Pos.X/xscale))
+					}
 					mm := &MapMarker{
 						mtype: int32(0),
 						id:    rid,
-						lat:   float32(latBase + 0.0001*(pose.Pose.Pos.Z/yscale)),
-						lon:   float32(lonBase + 0.0001*(pose.Pose.Pos.X/xscale)),
-						angle: float32(pose.Pose.Ori.Z),
+						lat:   lat,
+						lon:   lon,
+						angle: angle,
 						speed: 1,
+						ts:    timeStamp,
 					}
-					log.Printf("Map:%s", mm.GetJson())
+					log.Printf("Map:%s", mm.GetJsonTime())
 					mu.Lock()
 					ioserv.BroadcastToAll("event", mm.GetJson())
 					mu.Unlock()
@@ -436,6 +478,9 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				}
 			}
 		} else if strings.HasPrefix(mqttRCD.Topic, "pos/human/all") {
+			if *notUnity {
+				return
+			}
 			var poses []Pose
 			jerr := json.Unmarshal(mqttRCD.Record, &poses)
 			if jerr == nil {
@@ -463,6 +508,58 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				log.Printf("Unmarshal MQTT human record error! %v %v", jerr, mqttRCD)
 			}
 
+		} else if strings.HasPrefix(mqttRCD.Topic, "pos/human/") {
+			var pose HumanPose
+			var id int32
+			fmt.Sscanf(mqttRCD.Topic, "pos/human/%d/pose", &id)
+			jerr := json.Unmarshal(mqttRCD.Record, &pose)
+			if jerr != nil {
+				log.Printf("Unmarshal MQTT human record error! %v %v", jerr, mqttRCD)
+			} else {
+				agts := make([]*pagent.PAgent, 1)
+				agt := &pagent.PAgent{
+					Id:    id,
+					Point: []float64{lonBase + 0.0001*(pose.Pose.Pos.X/xscale), latBase + 0.0001*(pose.Pose.Pos.Y/yscale)},
+				}
+				agts[0] = agt
+				agents := pagent.PAgents{
+					Agents: agts,
+				}
+				jsonBytes, _ := json.Marshal(agents)
+				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, 0, string(jsonBytes))
+				log.Printf("Agent%d:%s", id, jstr)
+				mu.Lock()
+				ioserv.BroadcastToAll("agents", jstr)
+				mu.Unlock()
+			}
+		} else if strings.HasPrefix(mqttRCD.Topic, "pos/cart/") {
+			var pose HumanPose
+			var cid int32
+			fmt.Sscanf(mqttRCD.Topic, "pos/cart/%d/pose", &cid)
+			if cid < 10 {
+				cid += 500 // we just check for different name space for agent and robot and cart.
+			}
+
+			jerr := json.Unmarshal(mqttRCD.Record, &pose)
+			if jerr != nil {
+				log.Printf("Unmarshal MQTT cart record error! %v %v", jerr, mqttRCD)
+			} else {
+				agts := make([]*pagent.PAgent, 1)
+				agt := &pagent.PAgent{
+					Id:    cid,
+					Point: []float64{lonBase + 0.0001*(pose.Pose.Pos.X/xscale), latBase + 0.0001*(pose.Pose.Pos.Y/yscale)},
+				}
+				agts[0] = agt
+				agents := pagent.PAgents{
+					Agents: agts,
+				}
+				jsonBytes, _ := json.Marshal(agents)
+				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, 0, string(jsonBytes))
+				log.Printf("Agent%d:%s", cid, jstr)
+				mu.Lock()
+				ioserv.BroadcastToAll("agents", jstr)
+				mu.Unlock()
+			}
 		}
 
 	} else {
@@ -578,6 +675,7 @@ func main() {
 	mqtt_client := sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON4)
 
 	wg.Add(1)
+
 	go subscribeRideSupply(rideClient)
 
 	go subscribePAgentSupply(pa_client)
