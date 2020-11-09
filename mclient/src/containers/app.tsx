@@ -875,7 +875,7 @@ class App extends Container<any,any> {
 					movedData,
 					clickedObject, 
 					actions,
-					visible: this.state.moveDataVisible,
+//1107??			//	visible: this.state.moveDataVisible,
 					optionVisible: this.state.moveOptionVisible,
 					layerRadiusScale: 0.03,
 					layerOpacity: 0.8,
@@ -891,7 +891,7 @@ class App extends Container<any,any> {
 					sizeScale: 20,
 					iconChange: false,
 					optionChange: false, // this.state.optionChange,
-					onHover
+//1107 ??					onHover
 				}) as any
 			)
 		}

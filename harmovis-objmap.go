@@ -560,7 +560,7 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				ioserv.BroadcastToAll("agents", jstr)
 				mu.Unlock()
 			}
-		}
+		} //else if strings.HasPrefix(mqttRCD.Topic, "pos/robot") {
 
 	} else {
 		log.Printf("Unmarshal Proto error! %v %v", err, mqttRCD)
