@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { DepotsInput,
+import { MovesInput,
   AddMinutesButton, PlayButton, PauseButton, ReverseButton, ForwardButton,
   ElapsedTimeRange, ElapsedTimeValue, SpeedRange, SpeedValue, SimulationDateTime,
   NavigationButton, BasedProps, ClickedObject, RoutePaths } from 'harmoware-vis'
@@ -174,7 +174,7 @@ export default class Controller extends React.Component<ControllerProps, ContSta
 
     const { currentGroupindex, routeGroupDisplay, saveRouteGroup } = this.state
     const displayIndex = saveRouteGroup.length ? currentGroupindex + 1 : 0
-    const { depotsFileName } = inputFileName
+    const { movesFileName } = inputFileName
 
     return (
       <div className='harmovis_controller'>
@@ -197,6 +197,14 @@ export default class Controller extends React.Component<ControllerProps, ContSta
                 <button className='btn btn-outline-light btn-sm w-100' onClick={this.movesBaseSave.bind(this)}>
                   <span className='button_span'>Data Save</span>
                 </button>
+              </div>
+            </li>            
+            <li><span>移動データロード</span>
+              <div className='harmovis_input_button_column'>
+                <label htmlFor="MovesInput" className="btn btn-outline-light btn-sm w-100">
+                  移動データ選択<MovesInput actions={actions} id="MovesInput" />
+                </label>
+                <div>{movesFileName || '選択されていません'}</div>
               </div>
             </li>            
             {/*
