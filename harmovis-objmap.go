@@ -120,11 +120,12 @@ func run_server() *gosocketio.Server {
 type MapMarker struct {
 	mtype int32   `json:"mtype"`
 	id    int32   `json:"id"`
-	lat   float32 `json:"lat"`
-	lon   float32 `json:"lon"`
+	lat   float64 `json:"lat"`
+	lon   float64 `json:"lon"`
 	angle float32 `json:"angle"`
 	speed int32   `json:"speed"`
 	ts    int64   `json:"ts"`
+	ms    int     `json:"ts"`
 }
 
 type Position struct {
@@ -171,19 +172,22 @@ type HumanPose struct {
 }
 
 var (
-	eventTimeStamp  int64 = 0
-	agent1TimeStamp int64 = 0
-	agent2TimeStamp int64 = 0
+	eventTimeStamp  int64     = 0
+	eventPoint      []float64 = []float64{0, 0}
+	agent1TimeStamp int64     = 0
+	agent1Point     []float64 = []float64{0, 0}
+	agent2TimeStamp int64     = 0
+	agent2Point     []float64 = []float64{0, 0}
 )
 
 func (m *MapMarker) GetJson() string {
 	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d,\"ts\":%d.%03d}",
-		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, m.ts, 0)
+		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, m.ts, m.ms)
 	return s
 }
 func (m *MapMarker) GetJsonTime() string {
 	s := fmt.Sprintf("{\"mtype\":%d,\"id\":%d,\"lat\":%f,\"lon\":%f,\"angle\":%f,\"speed\":%d,\"ts\":%s}",
-		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, time.Unix(m.ts, 0).Format(time.RFC3339))
+		m.mtype, m.id, m.lat, m.lon, m.angle, m.speed, time.Unix(m.ts, int64(m.ms*1000000)).Format(time.RFC3339))
 	return s
 }
 
@@ -194,11 +198,12 @@ func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		mm := &MapMarker{
 			mtype: int32(0),
 			id:    flt.VehicleId,
-			lat:   flt.Coord.Lat,
-			lon:   flt.Coord.Lon,
+			lat:   float64(flt.Coord.Lat),
+			lon:   float64(flt.Coord.Lon),
 			angle: flt.Angle,
 			speed: flt.Speed,
-			ts:    sp.Ts.AsTime().Unix(), // unix seconds
+			ts:    sp.Ts.AsTime().Unix(),                 // unix seconds
+			ms:    sp.Ts.AsTime().Nanosecond() / 1000000, // Milliseconds
 		}
 		//		jsondata, err := json.Marshal(*mm)
 		//		fmt.Println("rcb",mm.GetJson())
@@ -387,7 +392,8 @@ func subscribeGeoSupply(client *sxutil.SXServiceClient) {
 func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	mqttRCD := mqtt.MQTTRecord{}
 	err := proto.Unmarshal(sp.Cdata.Entity, &mqttRCD)
-	timeStamp := sp.Ts.AsTime().Unix() // unix time
+	timeStamp := sp.Ts.AsTime().Unix()          // unix time
+	ms := sp.Ts.AsTime().Nanosecond() / 1000000 // Milliseconds
 	if err == nil {
 		var rid int32
 		if strings.HasPrefix(mqttRCD.Topic, "pos/robot") {
@@ -405,13 +411,13 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					angle = float32(pose.Pose.Ori.Z)
 				}
 				if jerr == nil {
-					var lat, lon float32
+					var lat, lon float64
 					if *notUnity {
-						lat = float32(latBase + -0.0001*(pose.Pose.Pos.Y/yscale))
-						lon = float32(lonBase + -0.0001*(pose.Pose.Pos.X/xscale))
+						lat = float64(latBase + -0.0001*(pose.Pose.Pos.Y/yscale))
+						lon = float64(lonBase + -0.0001*(pose.Pose.Pos.X/xscale))
 					} else {
-						lat = float32(latBase + 0.0001*(pose.Pose.Pos.Z/yscale))
-						lon = float32(lonBase + 0.0001*(pose.Pose.Pos.X/xscale))
+						lat = float64(latBase + 0.0001*(pose.Pose.Pos.Z/yscale))
+						lon = float64(lonBase + 0.0001*(pose.Pose.Pos.X/xscale))
 					}
 					mm := &MapMarker{
 						mtype: int32(0),
@@ -421,13 +427,16 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 						angle: angle,
 						speed: 1,
 						ts:    timeStamp,
+						ms:    ms,
 					}
-					if eventTimeStamp != timeStamp {
+					if eventTimeStamp != timeStamp || eventPoint[0] != lon || eventPoint[1] != lat {
 						log.Printf("Map:%s", mm.GetJsonTime())
 						mu.Lock()
 						ioserv.BroadcastToAll("event", mm.GetJson())
 						mu.Unlock()
 						eventTimeStamp = timeStamp
+						eventPoint[0] = lon
+						eventPoint[1] = lat
 					}
 				} else {
 					log.Printf("Unmarshal MQTT robot record error! %v %v", jerr, mqttRCD)
@@ -455,7 +464,7 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				//				sp.Ts.GetSeconds()
 				//				nanos := sp.Ts.GetNanos()
 				jsonBytes, _ := json.Marshal(agents)
-				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", seconds, 0, string(jsonBytes))
+				jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", seconds, ms, string(jsonBytes))
 				log.Printf("Agents:%s", jstr)
 				mu.Lock()
 				ioserv.BroadcastToAll("agents", jstr)
@@ -481,14 +490,16 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				agents := pagent.PAgents{
 					Agents: agts,
 				}
-				if agent1TimeStamp != timeStamp {
+				if agent1TimeStamp != timeStamp || agent1Point[0] != pose.Pose.Pos.X || agent1Point[1] != pose.Pose.Pos.Y {
 					jsonBytes, _ := json.Marshal(agents)
-					jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, 0, string(jsonBytes))
+					jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, ms, string(jsonBytes))
 					log.Printf("Agent%d:%s", id, jstr)
 					mu.Lock()
 					ioserv.BroadcastToAll("agents", jstr)
 					mu.Unlock()
 					agent1TimeStamp = timeStamp
+					agent1Point[0] = pose.Pose.Pos.X
+					agent1Point[1] = pose.Pose.Pos.Y
 				}
 			}
 		} else if strings.HasPrefix(mqttRCD.Topic, "pos/cart/") {
@@ -512,14 +523,16 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				agents := pagent.PAgents{
 					Agents: agts,
 				}
-				if agent2TimeStamp != timeStamp {
+				if agent2TimeStamp != timeStamp || agent2Point[0] != pose.Pose.Pos.X || agent2Point[1] != pose.Pose.Pos.Y {
 					jsonBytes, _ := json.Marshal(agents)
-					jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, 0, string(jsonBytes))
+					jstr := fmt.Sprintf("{ \"ts\": %d.%03d, \"dt\": %s}", timeStamp, ms, string(jsonBytes))
 					log.Printf("Agent%d:%s", cid, jstr)
 					mu.Lock()
 					ioserv.BroadcastToAll("agents", jstr)
 					mu.Unlock()
 					agent2TimeStamp = timeStamp
+					agent2Point[0] = pose.Pose.Pos.X
+					agent2Point[1] = pose.Pose.Pos.Y
 				}
 			}
 		} //else if strings.HasPrefix(mqttRCD.Topic, "pos/robot") {
