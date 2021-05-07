@@ -12,7 +12,7 @@ import {
 // import { StaticMap,  } from 'react-map-gl';
 //import { Layer } from '@deck.gl/core'
 
-import {GeoJsonLayer, LineLayer, ArcLayer, ScatterplotLayer} from 'deck.gl'
+import {GeoJsonLayer, LineLayer, ArcLayer, ScatterplotLayer} from '@deck.gl/layers'
 import { CubeGeometry } from '@luma.gl/engine'
 
 const CUBE_POSITIONS = new Float32Array([
@@ -52,13 +52,14 @@ import Controller from '../components/controller'
 import HeatmapLayer from './HeatmapLayer'
 //import layerSettings from '../reducer/layerSettings'
 
-// for objMap.
-import { SimpleMeshLayer } from 'deck.gl';
+import { ScenegraphLayer, SimpleMeshLayer } from '@deck.gl/mesh-layers';
 import {registerLoaders} from '@loaders.gl/core';
 import {OBJLoader} from '@loaders.gl/obj';
-registerLoaders([OBJLoader]);
-const objmesh = '../objdata/3dmap.obj';
+import {GLTFLoader} from '@loaders.gl/gltf';
 
+registerLoaders([OBJLoader,GLTFLoader]);
+//const objmesh = '../objdata/3dmap.obj';
+const scenegraph = '../objdata/willowgarage.gltf';
 
 class App extends Container<any,any> {
 	private lines = 0;
@@ -789,7 +790,7 @@ class App extends Container<any,any> {
 		}
 
 //
-		layers.push(
+/*		layers.push(
 			new SimpleMeshLayer({
                 id:'meshmap',
                 data:[{position:[136.906428,35.181453]}],
@@ -801,7 +802,7 @@ class App extends Container<any,any> {
 
 
 		)
-
+*/
 
 		if (lines.length > 0) {
 //			this.lines = 0
@@ -909,6 +910,17 @@ class App extends Container<any,any> {
 				  })
 			)
 		}
+
+		layers.push(
+			new ScenegraphLayer({
+                id:'ScenegraphLayer',
+                data:[{position:[136.906428,35.181453,0]}],
+                scenegraph:scenegraph,
+                getColor:[255,255,255,255],
+				getOrientation:[0,90,90],
+                opacity: 0.8,
+              })
+		)
 
 //		const onViewportChange = this.props.onViewportChange || actions.setViewport
 //	    const {viewState} = this.state

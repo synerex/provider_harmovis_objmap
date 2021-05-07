@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { MovesInput,
+import { MovesInput,DepotsInput,
   AddMinutesButton, PlayButton, PauseButton, ReverseButton, ForwardButton,
   ElapsedTimeRange, ElapsedTimeValue, SpeedRange, SpeedValue, SimulationDateTime,
   NavigationButton, BasedProps, ClickedObject, RoutePaths } from 'harmoware-vis'
@@ -174,7 +174,7 @@ export default class Controller extends React.Component<ControllerProps, ContSta
 
     const { currentGroupindex, routeGroupDisplay, saveRouteGroup } = this.state
     const displayIndex = saveRouteGroup.length ? currentGroupindex + 1 : 0
-    const { movesFileName } = inputFileName
+    const { movesFileName, depotsFileName } = inputFileName
 
     return (
       <div className='harmovis_controller'>
