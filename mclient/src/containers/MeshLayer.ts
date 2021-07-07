@@ -1,5 +1,5 @@
-import { LayerProps, CompositeLayer } from 'deck.gl'
-import { ColumnLayer } from 'deck.gl';
+import { LayerProps, CompositeLayer } from '@deck.gl/core'
+import { ColumnLayer } from '@deck.gl/layers';
 import { MovedData, Movesbase } from 'harmoware-vis'
 import { Layer } from '@deck.gl/core';
 import { MeshData } from '../constants/meshdata';
